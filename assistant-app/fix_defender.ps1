@@ -1,0 +1,1 @@
+﻿Add-MpPreference -ExclusionPath "C:\Rust_Targets"; Add-MpPreference -ExclusionPath "C:\Users\katip\OneDrive\Desktop\Root\assistant-app"; Write-Host "Ayarlar basariyla uygulandi! Cikmak icin bir tusa basin..."; [System.Console]::ReadKey() | Out-Null
