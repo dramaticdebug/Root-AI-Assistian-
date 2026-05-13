@@ -1,85 +1,97 @@
 import React, { useState } from 'react';
-import { Mic, Send, Paperclip } from 'lucide-react';
+import { Send, Paperclip, Sparkles } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { useVoiceStore } from '../../store/useVoiceStore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../../lib/utils';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { useMicrophone } from '../../hooks/useMicrophone';
+import { VoiceVisualizer } from '../voice/VoiceVisualizer';
+import { MicControl } from '../voice/MicControl';
 
 export const BottomInput: React.FC = () => {
   const [input, setInput] = useState('');
-  const { addMessage, setOrbState, setTyping, orbState } = useAppStore();
+  const { addMessage, isConnected, liveTranscription } = useAppStore();
+  const { status: micStatus } = useVoiceStore();
+  const { send } = useWebSocket();
+  const { analyser } = useMicrophone();
 
   const handleSend = () => {
-    if (!input.trim()) return;
-
-    // User sends message
+    if (!input.trim() || !isConnected) return;
     addMessage({ role: 'user', content: input });
+    send("user_message", { message: input });
     setInput('');
-    
-    // Simulate AI thinking and responding
-    setOrbState('thinking');
-    setTyping(true);
-
-    setTimeout(() => {
-      setTyping(false);
-      setOrbState('speaking');
-      addMessage({ 
-        role: 'assistant', 
-        content: 'I understand your request. Processing the data now through the local pipeline.' 
-      });
-
-      // Return to idle after speaking
-      setTimeout(() => {
-        setOrbState('idle');
-      }, 3000);
-    }, 2000);
-  };
-
-  const handleVoiceToggle = () => {
-    if (orbState === 'listening') {
-      setOrbState('thinking');
-      setTimeout(() => {
-        setOrbState('idle');
-      }, 1000);
-    } else {
-      setOrbState('listening');
-    }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto mt-4 px-4 pb-4 shrink-0">
-      <div className="relative group flex items-center bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-lg transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_20px_rgba(6,182,212,0.15)]">
-        
-        {/* Attachment Button */}
-        <button className="p-3 text-slate-400 hover:text-cyan-400 transition-colors rounded-xl hover:bg-white/5">
-          <Paperclip className="w-5 h-5" />
-        </button>
+    <div className="p-6 pt-0 relative z-10 w-full max-w-5xl mx-auto flex flex-col gap-4">
+      {/* Voice Visualizer Area */}
+      <div className="h-16 flex flex-col items-center justify-center gap-2">
+        <AnimatePresence>
+          {micStatus === 'listening' && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-xs font-medium text-cyan-400/80 italic animate-pulse"
+              >
+                {liveTranscription || "Listening..."}
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="w-full"
+              >
+                <VoiceVisualizer analyser={analyser} />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
 
-        {/* Text Input */}
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask anything or type a command..."
-          className="flex-1 bg-transparent border-none outline-none text-slate-100 placeholder:text-slate-500 px-2 font-medium"
-        />
+      <div className="flex items-end gap-4">
+        {/* Main Microphone Control */}
+        <MicControl />
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 pr-1">
-          <button 
-            onClick={handleVoiceToggle}
-            className={`p-3 transition-colors rounded-xl hover:bg-white/5 ${orbState === 'listening' ? 'text-red-400 animate-pulse' : 'text-slate-400 hover:text-cyan-400'}`}
-          >
-            <Mic className="w-5 h-5" />
+        {/* Text Input Console */}
+        <div className={cn(
+          "flex-1 relative glass-panel rounded-[2rem] p-2 flex items-center gap-2 transition-all duration-500",
+          "border-white/10 hover:border-cyan-500/20",
+          micStatus === 'listening' && "opacity-50 pointer-events-none"
+        )}>
+          <button className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/5 transition-all">
+            <Paperclip className="w-5 h-5" />
           </button>
-          
-          <button 
+
+          <input 
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder={micStatus === 'listening' ? "Neural link active. Speak now..." : "Neural command input..."}
+            className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder:text-slate-600 px-4 py-2 font-medium"
+          />
+
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleSend}
-            disabled={!input.trim()}
-            className="p-3 bg-cyan-500 hover:bg-cyan-400 text-white rounded-xl transition-all disabled:opacity-50 disabled:bg-slate-700 disabled:text-slate-400 shadow-md shadow-cyan-500/20"
+            disabled={!input.trim() || !isConnected || micStatus === 'listening'}
+            className={cn(
+              "h-10 px-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-full transition-all flex items-center justify-center gap-2",
+              "disabled:opacity-10 disabled:grayscale shadow-lg shadow-cyan-500/20 font-black text-[10px] uppercase tracking-[0.2em]"
+            )}
           >
-            <Send className="w-5 h-5" />
-          </button>
+            <span>Transmit</span>
+            <Send className="w-3.5 h-3.5" />
+          </motion.button>
         </div>
       </div>
+      
+      {/* Decorative Glow */}
+      <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-3/4 h-20 bg-cyan-500/5 blur-[80px] -z-10" />
     </div>
   );
 };

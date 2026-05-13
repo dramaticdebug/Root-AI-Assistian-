@@ -1,5 +1,14 @@
 fastapi
 uvicorn
-openai-whisper
-openai
 python-dotenv
+websockets
+pydantic
+pydantic-settings
+httpx
+openai
+psutil
+python-multipart
+loguru
+openai-whisper
+soundfile
+numpy

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type OrbState = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type OrbState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'offline';
 
 export type Message = {
   id: string;
@@ -9,32 +9,54 @@ export type Message = {
   timestamp: number;
 };
 
+export type CommandLog = {
+  id: string;
+  command: string;
+  status: 'success' | 'error';
+  message: string;
+  timestamp: number;
+};
+
 interface AppState {
   orbState: OrbState;
+  isConnected: boolean;
   activeTab: string;
   messages: Message[];
+  commandHistory: CommandLog[];
+  liveTranscription: string;
   isTyping: boolean;
   
   setOrbState: (state: OrbState) => void;
+  setConnected: (connected: boolean) => void;
   setActiveTab: (tab: string) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
+  addCommandLog: (log: Omit<CommandLog, 'id' | 'timestamp'>) => void;
+  setLiveTranscription: (text: string) => void;
   setTyping: (isTyping: boolean) => void;
+  clearMessages: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  orbState: 'idle',
+  orbState: 'offline',
+  isConnected: false,
   activeTab: 'chat',
   messages: [
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello. I am online and ready.',
-      timestamp: Date.now() - 10000,
+      content: 'Neural link initializing...',
+      timestamp: Date.now(),
     }
   ],
+  commandHistory: [],
+  liveTranscription: '',
   isTyping: false,
 
   setOrbState: (state) => set({ orbState: state }),
+  setConnected: (connected) => set({ 
+    isConnected: connected,
+    orbState: connected ? 'idle' : 'offline'
+  }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   addMessage: (msg) => set((state) => ({
     messages: [
@@ -46,5 +68,17 @@ export const useAppStore = create<AppState>((set) => ({
       }
     ]
   })),
+  addCommandLog: (log) => set((state) => ({
+    commandHistory: [
+      {
+        ...log,
+        id: Math.random().toString(36).substring(7),
+        timestamp: Date.now(),
+      },
+      ...state.commandHistory
+    ].slice(0, 50) // Keep last 50
+  })),
+  setLiveTranscription: (text) => set({ liveTranscription: text }),
   setTyping: (isTyping) => set({ isTyping }),
+  clearMessages: () => set({ messages: [] }),
 }));
